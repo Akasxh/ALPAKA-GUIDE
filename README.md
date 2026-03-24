@@ -1,37 +1,125 @@
-# ALPAKA-GUIDE
-Helpful documentation to get started with using ALPAKA (Abstraction Library for Parallel Kernel Acceleration)
+# ALPAKA Guide
 
+A comprehensive API reference for the [Alpaka](https://github.com/alpaka-group/alpaka) (Abstraction Library for Parallel Kernel Acceleration) framework. Covers the full API surface from device setup through kernel execution, memory management, synchronization, and warp intrinsics.
 
-| Function / API                                                                                        | Where to use / purpose                      | What it takes & does (inputs, execution)                                                      |                                             |                                                                 |         |                      |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------- | ------- | -------------------- |
-| `DimInt<N>`, `Idx`                                                                                    | Define kernel dimensionality and index type | Type aliases on host; e.g., `using Dim = alpaka::DimInt<1>; using Idx = std::size_t;`         |                                             |                                                                 |         |                      |
-| `AccGpuCudaRt`, `AccGpuHipRt`, `AccCpuOmp2Blocks`, …                                                  | Pick backend accelerator                    | `using Acc = AcceleratorType<Dim,Idx>;` choose from listed accelerators                       |                                             |                                                                 |         |                      |
-| `Platform<Acc>` → `getDevByIdx(platform,i)`                                                           | Select device                               | `auto platform = Platform<Acc>{}; auto dev = getDevByIdx(platform, i);`                       |                                             |                                                                 |         |                      |
-| \`Queue\<Acc, Blocking                                                                                | NonBlocking>\`                              | Submit kernels/memcpy                                                                         | `Queue q{dev}; enqueue(q, task); wait(q);`  |                                                                 |         |                      |
-| `Event<Queue>` / `enqueue(q,event)` / `isComplete(event)` / `wait(event)`                             | Fine-grained sync                           | Create event, enqueue, query/wait completion                                                  |                                             |                                                                 |         |                      |
-| `allocBuf<T,Idx>(dev, extent)`                                                                        | Allocate buffer                             | Returns `Buf<Dev,T,Dim,Idx>` for given extent vector                                          |                                             |                                                                 |         |                      |
-| \`createView(devHost, ptr                                                                             | vector                                      | array, extent)\`                                                                              | Wrap host memory                            | Overloads for pointer/`std::vector`/`std::array` to make views  |         |                      |
-| `view::getPtrNative(viewOrBuf)`                                                                       | Get raw pointer                             | Returns native `T*` for a view/buffer                                                         |                                             |                                                                 |         |                      |
-| `getPitchesInBytes(bufOrView)`                                                                        | ND strides                                  | Byte pitch per dimension for 2D/ND buffers/views                                              |                                             |                                                                 |         |                      |
-| `experimental::getMdSpan(bufOrView)`                                                                  | MD indexing on host                         | Returns mdspan; index as `(y,x,...)`                                                          |                                             |                                                                 |         |                      |
-| `memcpy(queue, dst, src, extent)`                                                                     | Host↔Device copies                          | Enqueue copy; compatible with `Buf` and `View`                                                |                                             |                                                                 |         |                      |
-| `KernelCfg<Acc>` + `getValidWorkDiv(...)`                                                             | Auto work-division                          | Provide globalThreadExtent/elementsPerThread; returns valid work-div for device & kernel      |                                             |                                                                 |         |                      |
-| `WorkDivMembers<Dim,Idx>(blocks,threads,elementsPerThread)`                                           | Manual work-division                        | Build vectors for blocks/threads/elements-per-thread                                          |                                             |                                                                 |         |                      |
-| `exec<Acc>(queue, workDiv, kernel, args...)`                                                          | Launch kernel                               | Submits functor; runs async on queue                                                          |                                             |                                                                 |         |                      |
-| `getFunctionAttributes<Acc>(dev, kernel, params...)`                                                  | Query kernel limits                         | Get max threads per block, registers, etc., for tuning                                        |                                             |                                                                 |         |                      |
-| `ALPAKA_FN_ACC`                                                                                       | Mark device code                            | Decorate kernel `operator()` and device helpers (required)                                    |                                             |                                                                 |         |                      |
-| `getIdx<Origin,Unit>(acc)`                                                                            | Thread/block/grid indices                   | \`Origin: Grid                                                                                | Block                                       | Thread`, `Unit: Blocks                                          | Threads | Elems\` → ND vector  |
-| `getWorkDiv<Origin,Unit>(acc)`                                                                        | Extents (sizes)                             | ND vector sizes matching the above origins/units                                              |                                             |                                                                 |         |                      |
-| `mapIdx<1u>(idxND, extentND)` / `mapIdx<N>`                                                           | ND↔M-D mapping                              | Linearize or remap indices between dims                                                       |                                             |                                                                 |         |                      |
-| `declareSharedVar<T, __COUNTER__>(acc)`                                                               | Static shared memory                        | Per-block shared scalar/array inside kernels                                                  |                                             |                                                                 |         |                      |
-| `getDynSharedMem<T>(acc)` (+ specialize `trait::BlockSharedMemDynSizeBytes`)                          | Dynamic shared memory                       | Per-block scratch with size defined by trait/launch                                           |                                             |                                                                 |         |                      |
-| `syncBlockThreads(acc)`                                                                               | Block barrier                               | Synchronize threads in same block                                                             |                                             |                                                                 |         |                      |
-| `atomicOp<AtomicAdd>(acc, ptr, v)` / `atomicAdd(acc, ptr, v)`                                         | Atomics                                     | Generic `atomicOp<…>` or convenience forms; ops: Add/Sub/Min/Max/Exch/Inc/Dec/And/Or/Xor/Cas  |                                             |                                                                 |         |                      |
-| `mem\_fence(acc, memory\_scope::BlockDevice{})\`                                                     | Grid                                        | Fences for LoadLoad/StoreStore within scope                                                    |                                             |                                                                 |         |                      |
-| `warp::ballot(acc, pred)` / `warp::shfl(val, srcLane)`                                                | Warp intrinsics                             | Vote/shuffle within a warp (GPU)                                                              |                                             |                                                                 |         |                      |
-| `math::sqrt(acc,x)`, `math::exp`, `math::log`, …                                                      | Math in kernels                             | Pass `acc` as first arg; backend-optimized math                                               |                                             |                                                                 |         |                      |
-| `rand::distribution::createNormalReal<double>(acc)`; `rand::engine::createDefault(acc, seed, subseq)` | RNG                                         | Build distribution and engine; sample via `distribution(engine)`                              |                                             |                                                                 |         |                      |
-| `uniformElementsAlong<Dim>(acc[, first], extent)`                                                     | Balanced iteration along dimension          | Iterable range `[first, extent)` along `Dim` (dimension-aware)                                |                                             |                                                                 |         |                      |
-| `uniformElements(acc, extent)`                                                                        | 1-D balanced iteration                      | Shorthand for `Along<0>` in 1-D; avoid block sync *inside this loop*                          |                                             |                                                                 |         |                      |
-| `uniformElementsAlongX/Y/Z(acc, extent)`                                                              | CUDA/HIP-style aliases                      | Shorthands for N−1 / N−2 / N−3 dims in ND kernels                                             |                                             |                                                                 |         |                      |
-| `uniformGroupsAlong<Dim>(acc, extent)` + `uniformGroupElementsAlong<Dim>(acc, group, extent)`         | Two-phase iteration with sync points        | Use when you need `syncBlockThreads` between phases (group loop ↔ element loop)               |                                             |                                                                 |         |                      |
+```mermaid
+flowchart TB
+    subgraph "1. Platform & Device Setup"
+        DIM["DimInt<N>, Idx\n(Dimensionality & Index Type)"]
+        ACC["Accelerator Selection\nCUDA | HIP | OpenMP | Threads"]
+        DEV["Platform → Device\ngetDevByIdx()"]
+        Q["Queue (Blocking | NonBlocking)\nEvent Synchronization"]
+    end
+
+    subgraph "2. Memory Management"
+        ALLOC["allocBuf<T>(dev, extent)"]
+        VIEW["createView(ptr | vector | array)"]
+        COPY["memcpy(queue, dst, src)"]
+        PTR["getPtrNative() / getMdSpan()"]
+    end
+
+    subgraph "3. Kernel Launch"
+        WD["Work Division\nKernelCfg / WorkDivMembers"]
+        EXEC["exec<Acc>(queue, workDiv,\nkernel, args...)"]
+    end
+
+    subgraph "4. Inside Kernels"
+        IDX2["getIdx<Grid|Block, Threads|Elems>"]
+        SMEM["Shared Memory\ndeclareSharedVar / getDynSharedMem"]
+        SYNC["syncBlockThreads(acc)"]
+        ATOM["atomicOp<Add|Min|Max|CAS>"]
+        WARP["Warp: ballot / shfl"]
+        MATH["math::exp, sqrt, log"]
+    end
+
+    DIM --> ACC --> DEV --> Q
+    Q --> ALLOC --> VIEW --> COPY
+    COPY --> WD --> EXEC
+    EXEC --> IDX2
+    IDX2 --> SMEM
+    IDX2 --> SYNC
+    IDX2 --> ATOM
+    IDX2 --> WARP
+    IDX2 --> MATH
+
+    style EXEC fill:#2d5016,color:#fff
+    style IDX2 fill:#8b6914,color:#fff
+```
+
+## API Categories
+
+### Platform & Device
+| API | Purpose |
+|---|---|
+| `DimInt<N>`, `Idx` | Define kernel dimensionality and index type |
+| `AccGpuCudaRt`, `AccGpuHipRt`, `AccCpuOmp2Blocks` | Backend accelerator selection |
+| `Platform<Acc>`, `getDevByIdx(platform, i)` | Device enumeration |
+| `Queue<Acc, Blocking \| NonBlocking>` | Work submission and sync |
+| `Event<Queue>` | Fine-grained synchronization |
+
+### Memory Management
+| API | Purpose |
+|---|---|
+| `allocBuf<T, Idx>(dev, extent)` | Allocate typed buffer on device |
+| `createView(host, ptr, extent)` | Wrap existing host memory |
+| `memcpy(queue, dst, src, extent)` | Host-device transfers |
+| `view::getPtrNative(buf)` | Extract raw pointer |
+| `experimental::getMdSpan(buf)` | Multi-dimensional indexing |
+
+### Kernel Execution
+| API | Purpose |
+|---|---|
+| `KernelCfg<Acc>` + `getValidWorkDiv(...)` | Automatic work division |
+| `WorkDivMembers<Dim, Idx>(blocks, threads, elems)` | Manual work division |
+| `exec<Acc>(queue, workDiv, kernel, args...)` | Async kernel launch |
+| `ALPAKA_FN_ACC` | Device code annotation |
+
+### In-Kernel Primitives
+| API | Purpose |
+|---|---|
+| `getIdx<Origin, Unit>(acc)` | Thread/block/grid indices |
+| `uniformElements(acc, extent)` | Balanced 1D iteration |
+| `uniformElementsAlongX/Y/Z(acc, extent)` | ND iteration helpers |
+| `declareSharedVar<T, ID>(acc)` | Static shared memory |
+| `getDynSharedMem<T>(acc)` | Dynamic shared memory |
+| `syncBlockThreads(acc)` | Block-level barrier |
+| `atomicOp<Op>(acc, ptr, val)` | Atomic operations |
+| `warp::ballot / shfl` | Warp-level intrinsics |
+| `math::sqrt, exp, log, tanh` | Device math functions |
+
+## Quick Start
+
+```cpp
+#include <alpaka/alpaka.hpp>
+
+using Dim = alpaka::DimInt<1>;
+using Idx = std::size_t;
+using Acc = alpaka::AccGpuCudaRt<Dim, Idx>;
+
+auto platform = alpaka::Platform<Acc>{};
+auto dev = alpaka::getDevByIdx(platform, 0);
+auto queue = alpaka::Queue<Acc, alpaka::Blocking>{dev};
+
+// Allocate and transfer
+auto buf = alpaka::allocBuf<float, Idx>(dev, 1024);
+
+// Launch kernel
+auto workDiv = alpaka::getValidWorkDiv<Acc>(dev, 1024, 1);
+alpaka::exec<Acc>(queue, workDiv, MyKernel{}, alpaka::getPtrNative(buf), 1024);
+```
+
+## Tech Stack
+
+- **C++17**
+- **Alpaka** >= 1.0
+- Backends: **CUDA**, **HIP**, **OpenMP**, **std::thread**, **TBB**
+
+## Contributing
+
+1. Fork the repository
+2. Improve or extend the API reference
+3. Submit a pull request
+
+## License
+
+This project is available under the MIT License.
